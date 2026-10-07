@@ -54,7 +54,7 @@ Lớp thu nhập trên 50K chỉ chiếm 24.8%. Mô hình luôn đoán “thu nh
 ## 5. Phần Bonus Đã Thực Hiện
 
 - [x] Bonus 1 - DagsHub: mirror GitHub và 3 secrets đã cấu hình; Actions run `37604096953` ghi 4 runs `FINISHED` lên MLflow remote (ảnh `06-dagshub-mlflow.png`).
-- [x] Bonus 2 - Quét threshold 0.10–0.90; production chọn 0.30.
+- [x] Bonus 2 - Quét threshold 0.10–0.90. Ở Bước 3, F1 tại ngưỡng mặc định 0.5 là 0.7014; sau tối ưu, F1 tăng lên 0.7345 tại ngưỡng 0.45. Model production Bước 2 vẫn dùng ngưỡng 0.30 vì rollback guard không promote candidate Bước 3.
 - [x] Bonus 3 - Tạo `detail.txt`, confusion matrix và metric từng lớp.
 - [x] Bonus 4 - Candidate kém hơn không thay production 0.7407.
 - [x] Bonus 5 - Ghi tỷ lệ lớp dương và cảnh báo lệch trên 5 điểm phần trăm.

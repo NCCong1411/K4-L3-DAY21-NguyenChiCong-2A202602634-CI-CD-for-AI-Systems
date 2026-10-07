@@ -13,7 +13,8 @@ nop-bai/
     ├── 02-actions-buoc-2.png
     ├── 03-actions-buoc-3.png
     ├── 04-curl-api.png
-    └── 05-cloud-storage.png
+    ├── 05a-storage-dvc.png
+    └── 05b-storage-model.png
 ```
 
 ---
@@ -40,7 +41,7 @@ nop-bai/
 | `02-actions-buoc-2.png` | Bước 2 - CI/CD (bốn jobs màu xanh) | 16 |
 | `03-actions-buoc-3.png` | Bước 3 - Tự động hóa | 12 |
 | `04-curl-api.png` | Bước 2 - Serving | 12 |
-| `05-cloud-storage.png` | Bước 2 - DVC | 12 |
+| `05a-storage-dvc.png` và `05b-storage-model.png` | Bước 2 - DVC và model trên cloud storage | 12 |
 
 Phần `bao-cao.md` chứng minh hạng mục **Bước 1 - Phân tích** (4 điểm) và là nơi bạn giải
 trình khi một ảnh nào đó chưa thể hiện đủ (ví dụ quality gate đã chặn đúng một lần).
