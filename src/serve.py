@@ -1,41 +1,44 @@
+import os
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+import boto3
+import joblib
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from google.cloud import storage
-import joblib
-import os
 
-app = FastAPI()
-
-ARTIFACT_BUCKET = os.environ["ARTIFACT_BUCKET"]
-MODEL_KEY = "artifacts/current/model.joblib"
-MODEL_PATH = os.path.expanduser("~/models/model.joblib")
+ARTIFACT_BUCKET = os.getenv("ARTIFACT_BUCKET")
+MODEL_KEY = os.getenv("MODEL_KEY", "artifacts/current/model.joblib")
+MODEL_PATH = Path(os.getenv("MODEL_PATH", "/opt/income-api/models/model.joblib"))
 
 
-def download_model():
-    """
-    Tai file model.joblib tu cloud storage ve may khi server khoi dong.
-
-    Ham nay duoc goi mot lan khi module duoc import. Su dung
-    GOOGLE_APPLICATION_CREDENTIALS de xac thuc (duoc dat trong systemd service).
-    """
-    # TODO 1: Tao storage.Client()
-    # client = storage.Client()
-
-    # TODO 2: Lay bucket va blob tuong ung
-    # bucket = client.bucket(ARTIFACT_BUCKET)
-    # blob   = bucket.blob(MODEL_KEY)
-
-    # TODO 3: Tai file model xuong may
-    # blob.download_to_filename(MODEL_PATH)
-
-    # TODO 4: In thong bao thanh cong
-    # print("Model da duoc tai xuong tu cloud storage.")
-
-    pass  # xoa dong nay sau khi hoan thanh tat ca TODO ben tren
+def download_model(s3_client=None) -> Path:
+    """Download the current production model from S3."""
+    if not ARTIFACT_BUCKET:
+        raise RuntimeError("ARTIFACT_BUCKET environment variable is required")
+    MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
+    client = s3_client or boto3.client("s3")
+    client.download_file(ARTIFACT_BUCKET, MODEL_KEY, str(MODEL_PATH))
+    print(f"Downloaded s3://{ARTIFACT_BUCKET}/{MODEL_KEY} to {MODEL_PATH}")
+    return MODEL_PATH
 
 
-download_model()
-model = joblib.load(MODEL_PATH)
+def load_model_bundle(path: Path):
+    bundle = joblib.load(path)
+    if not isinstance(bundle, dict) or "model" not in bundle or "threshold" not in bundle:
+        raise ValueError("Model artifact must contain model and threshold")
+    return bundle
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    if getattr(app.state, "model_bundle", None) is None:
+        app.state.model_bundle = load_model_bundle(download_model())
+    yield
+
+
+app = FastAPI(title="Adult Income Prediction API", lifespan=lifespan)
+app.state.model_bundle = None
 
 
 class ScoreRequest(BaseModel):
@@ -44,41 +47,30 @@ class ScoreRequest(BaseModel):
 
 @app.get("/healthz")
 def healthz():
-    """
-    Endpoint kiem tra suc khoe server.
-    GitHub Actions goi endpoint nay sau khi deploy de xac nhan server dang chay.
-
-    Tra ve: {"status": "ok"}
-    """
-    # TODO 5: Tra ve dict {"status": "ok"}
-    pass  # xoa dong nay sau khi hoan thanh
+    if app.state.model_bundle is None:
+        raise HTTPException(status_code=503, detail="Model is not loaded")
+    return {"status": "ok"}
 
 
 @app.post("/score")
 def score(req: ScoreRequest):
-    """
-    Endpoint suy luan chinh.
-
-    Dau vao : JSON {"features": [f1, f2, ..., f10]}
-    Dau ra  : JSON {"prediction": <0|1>, "label": <"thu_nhap_thap"|"thu_nhap_cao">}
-
-    Thu tu 10 dac trung (khop voi thu tu trong FEATURE_NAMES cua test):
-        age, workclass, education_num, marital_status, occupation,
-        relationship, sex, capital_gain, capital_loss, hours_per_week
-    """
-    # TODO 6: Kiem tra so luong dac trung.
-    # Neu len(req.features) != 10, raise HTTPException(status_code=400, ...)
-
-    # TODO 7: Goi model.predict([req.features]) de lay ket qua du doan.
-    # pred = model.predict(...)
-
-    # TODO 8: Tra ve dict chua "prediction" (int) va "label" (string).
-    # Nhan tuong ung: 0 -> "thu_nhap_thap", 1 -> "thu_nhap_cao"
-    # return {"prediction": ..., "label": ...}
-
-    pass  # xoa dong nay sau khi hoan thanh tat ca TODO ben tren
+    if len(req.features) != 10:
+        raise HTTPException(status_code=400, detail="Expected 10 features (adult income)")
+    bundle = app.state.model_bundle
+    if bundle is None:
+        raise HTTPException(status_code=503, detail="Model is not loaded")
+    probability = float(bundle["model"].predict_proba([req.features])[0, 1])
+    prediction = int(probability >= float(bundle["threshold"]))
+    label = "thu_nhap_cao" if prediction == 1 else "thu_nhap_thap"
+    return {
+        "prediction": prediction,
+        "label": label,
+        "probability": probability,
+        "threshold": float(bundle["threshold"]),
+    }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8080)

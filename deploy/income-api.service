@@ -1,0 +1,17 @@
+[Unit]
+Description=Adult Income Model API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/income-api/repo
+EnvironmentFile=/etc/income-api.env
+ExecStart=/opt/income-api/venv/bin/python -m uvicorn src.serve:app --host 0.0.0.0 --port 8080
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
