@@ -95,3 +95,4 @@ trong `bao-cao.md`. Ví dụ:
 
 - `06-dagshub-mlflow.png` — Bonus 1: MLflow trên DagsHub.
 - `07-quality-gate-chan.png` — quality gate chặn Release khi `f1_score < 0.65`.
+- `08-rollback-guard.png` — Bonus 4: giữ nguyên model production khi candidate có F1 thấp hơn.

@@ -53,7 +53,7 @@ Lớp thu nhập trên 50K chỉ chiếm 24.8%. Mô hình luôn đoán “thu nh
 
 ## 5. Phần Bonus Đã Thực Hiện
 
-- [ ] Bonus 1 - DagsHub: workflow sẵn sàng, chờ cấu hình secrets.
+- [x] Bonus 1 - DagsHub: mirror GitHub và 3 secrets đã cấu hình; Actions run `37604096953` ghi 4 runs `FINISHED` lên MLflow remote (ảnh `06-dagshub-mlflow.png`).
 - [x] Bonus 2 - Quét threshold 0.10–0.90; production chọn 0.30.
 - [x] Bonus 3 - Tạo `detail.txt`, confusion matrix và metric từng lớp.
 - [x] Bonus 4 - Candidate kém hơn không thay production 0.7407.
