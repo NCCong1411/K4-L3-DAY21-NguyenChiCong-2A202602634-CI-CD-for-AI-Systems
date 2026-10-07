@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      run_experiment_suite:
+        description: Log three additional hyperparameter runs to the configured MLflow server
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -18,9 +24,9 @@ jobs:
     name: Unit Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.10"
           cache: pip
@@ -40,15 +46,15 @@ jobs:
     outputs:
       f1: ${{ steps.read_report.outputs.f1 }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.10"
           cache: pip
 
       - name: Configure AWS credentials through OIDC
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
@@ -62,15 +68,33 @@ jobs:
           TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
           TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
         run: |
-          if [ -n "$TRACKING_URI" ]; then
+          if [ -n "$TRACKING_URI" ] && [ -n "$TRACKING_USERNAME" ] && [ -n "$TRACKING_PASSWORD" ]; then
             echo "MLFLOW_TRACKING_URI=$TRACKING_URI" >> "$GITHUB_ENV"
             echo "MLFLOW_TRACKING_USERNAME=$TRACKING_USERNAME" >> "$GITHUB_ENV"
             echo "MLFLOW_TRACKING_PASSWORD=$TRACKING_PASSWORD" >> "$GITHUB_ENV"
+            echo "Remote MLflow tracking is enabled."
+          elif [ -n "$TRACKING_URI$TRACKING_USERNAME$TRACKING_PASSWORD" ]; then
+            echo "::warning::Remote MLflow secrets are incomplete; using local tracking for this run."
           fi
           echo "MLFLOW_EXPERIMENT_NAME=adult-income-cicd" >> "$GITHUB_ENV"
 
       - name: Pull training data with DVC
         run: dvc pull data/train_batch1.csv.dvc data/holdout.csv.dvc
+
+      - name: Log additional MLflow experiments
+        if: github.event_name == 'workflow_dispatch' && inputs.run_experiment_suite
+        run: |
+          python - <<'PYEOF'
+          from src.train import train
+
+          experiments = [
+              {"n_estimators": 50, "learning_rate": 0.05, "max_depth": 2},
+              {"n_estimators": 200, "learning_rate": 0.10, "max_depth": 5},
+              {"n_estimators": 200, "learning_rate": 0.05, "max_depth": 3},
+          ]
+          for params in experiments:
+              train(params)
+          PYEOF
 
       - name: Train model and generate reports
         run: python src/train.py
@@ -90,7 +114,7 @@ jobs:
           aws s3 cp outputs/detail.txt "$prefix/detail.txt" --sse AES256
 
       - name: Save reports as workflow artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: training-reports-${{ github.sha }}
           path: |
@@ -121,7 +145,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Configure AWS credentials through OIDC
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
